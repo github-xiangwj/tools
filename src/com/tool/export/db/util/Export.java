@@ -72,7 +72,7 @@ public class Export {
 			List<String> tables = new ArrayList<String>();
 			if(tableRs != null){
 				while(tableRs.next()){
-					String tab = tableRs.getString("tab");
+					String tab = tableRs.getString("tableName");
 					logger.info("≤È—ØµΩ±Ì "+tab);
 					tables.add(tab);
 				}
