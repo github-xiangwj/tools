@@ -1,4 +1,4 @@
-package com.tool.export.oracle.bean;
+package com.tool.export.db.bean;
 
 public class Col {
 	

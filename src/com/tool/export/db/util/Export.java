@@ -1,7 +1,9 @@
-package com.tool.export.oracle.util;
+package com.tool.export.db.util;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -9,6 +11,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFRow;
@@ -18,7 +21,7 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.tool.export.oracle.bean.Col;
+import com.tool.export.db.bean.Col;
 import com.tool.export.style.FontStyle;
 
 /**
@@ -29,6 +32,8 @@ import com.tool.export.style.FontStyle;
 public class Export {
 	
 	protected static Logger logger = LoggerFactory.getLogger(Export.class);
+	
+	private static String DB_CONFIG_FILE = "export.db.properties";
 	
 	public static void main(String[] args) {
 		exportDbTables();
@@ -43,20 +48,24 @@ public class Export {
 		HSSFWorkbook workbook = null;
 		FileOutputStream fos = null;
 		try {
-			String url="jdbc:oracle:thin:@192.168.253.1:1521/orcl";
+			//获取数据库配置信息
+			Properties p = new Properties();
+			p.load(new InputStreamReader(Export.class.getClassLoader().getResourceAsStream(DB_CONFIG_FILE),"UTF-8"));
+			String dbType = p.getProperty("db.type");
 			
-			String user="admin";
+			String driver = p.getProperty(dbType +".driver");
+			String url = p.getProperty(dbType +".url");
+			String username = p.getProperty(dbType +".username");
+			String password = p.getProperty(dbType +".password");
 			
-			String password="forms123";
+			Class.forName(driver);
 			
-			Class.forName("oracle.jdbc.driver.OracleDriver");
-			
-			connection = DriverManager.getConnection(url, user, password);
+			connection = DriverManager.getConnection(url, username, password);
 		
 			Statement statement = connection.createStatement();
 			
 			//1.查询用户下所有的表名
-			String tableSql = "select table_name as tab from user_tables order by table_name";
+			String tableSql = p.getProperty(dbType+".tableSql");
 			
 			logger.info("查询数据库表sql："+tableSql);
 			ResultSet tableRs = statement.executeQuery(tableSql);
@@ -64,27 +73,16 @@ public class Export {
 			if(tableRs != null){
 				while(tableRs.next()){
 					String tab = tableRs.getString("tab");
-					logger.info(tab);
+					logger.info("查询到表 "+tab);
 					tables.add(tab);
 				}
 			}else{
-				logger.error(url.split("@")[1] +"数据库的"+user+"用户没有表!请确认!");
+				logger.error(url.split("@")[1] +"数据库的"+username+"用户没有表!请确认!");
 				return;
 			}
 			
 			//2.查询数据库列
-			String colsSql = " select "
-							+"  t.table_name as tableName,"
-							+"  c.comments as tableComment,"
-							+"  t.column_name as colName,"
-							+"  d.comments as colComment,"
-							+"  t.data_type as dataType,"
-							+"  t.data_length as dataLen,"
-							+"  t.nullable as nullable"
-							+" from user_tab_columns t"
-							+" join user_tab_comments c on t.TABLE_NAME = c.table_name"
-							+" join user_col_comments d on t.TABLE_NAME = d.table_name and t.COLUMN_NAME = d.column_name"
-							+" order by t.table_name, t.column_id";
+			String colsSql = p.getProperty(dbType+".colsSql");
 
 			logger.info("查询数据库表列信息sql："+colsSql);
 			ResultSet colsRs = statement.executeQuery(colsSql);
@@ -117,7 +115,7 @@ public class Export {
 			sheet.addMergedRegion(range);
 			cell = row.createCell(0);
 			cell.setCellStyle(FontStyle.titleStyle(workbook));
-			cell.setCellValue(user+"用户表结构");
+			cell.setCellValue(username+"用户表结构");
 
 			row = sheet.createRow(m++);
 			cell = row.createCell(0);
@@ -183,13 +181,20 @@ public class Export {
 				cell.setCellStyle(FontStyle.textStyle(workbook));
 				cell.setCellValue(col.getNullable());
 			}
-			
+			//冻结窗口
 			sheet.createFreezePane(0, 2);
+			//保存的文件名
+			String filename = p.getProperty("export.file.name");
 			
-			fos = new FileOutputStream(new File("D:\\11.xls"));
+			if(filename == null || filename.equals("")){
+				//默认保存文件名
+				filename = "D:\\"+username+"表结构.xls";
+			}
+			
+			fos = new FileOutputStream(new File(filename));
 			workbook.write(fos);
 			fos.flush();
-			logger.info("成功导出数据库表结构");
+			logger.info("成功导出 "+url+" 数据库 "+username+" 表结构");
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -198,6 +203,13 @@ public class Export {
 				try {
 					connection.close();
 				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+			if(fos != null){
+				try {
+					fos.close();
+				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
