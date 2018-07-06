@@ -161,6 +161,9 @@ public class Export {
 					cell.setCellValue(col.getTableComment());
 					hasWriteTable = true;
 				}
+				if(col.getTableName().equals("CCPMS_ETL_DATE")){
+					logger.info("");
+				}
 				//生成表列
 				logger.info("正在生成数据表["+tables.get(j)+"]列"+ col.getColName());
 				//将当前遍历的表的字段信息写入文件
