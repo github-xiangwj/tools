@@ -1,6 +1,7 @@
 package com.tool.export.db.util;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -33,7 +34,7 @@ public class Export {
 	
 	protected static Logger logger = LoggerFactory.getLogger(Export.class);
 	
-	private static String DB_CONFIG_FILE = "export.db.properties";
+	private static String DB_CONFIG_FILE = System.getProperty("db-conf");
 	
 	public static void main(String[] args) {
 		exportDbTables();
@@ -50,7 +51,8 @@ public class Export {
 		try {
 			//获取数据库配置信息
 			Properties p = new Properties();
-			p.load(new InputStreamReader(Export.class.getClassLoader().getResourceAsStream(DB_CONFIG_FILE),"UTF-8"));
+			//p.load(new InputStreamReader(Export.class.getClassLoader().getResourceAsStream(DB_CONFIG_FILE),"UTF-8"));
+			p.load(new InputStreamReader(new FileInputStream(new File(DB_CONFIG_FILE)),"UTF-8"));
 			String dbType = p.getProperty("db.type");
 			
 			String driver = p.getProperty(dbType +".driver");
